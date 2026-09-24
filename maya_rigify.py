@@ -49,6 +49,7 @@ class P_rigToolKit(object):
 	
 
 	def createFKCtrls(self, allJointRelationships):	
+		print("fk creation")
 		
 		lastMainOffSetGroup = None
 		allMainOffsetGroups = []
@@ -133,17 +134,19 @@ class P_rigToolKit(object):
 					if len(children) > 1:
 						break
 
-				else:
-					child = children[0]
-					lower = child.lower()
+				
+				
+				child = children[0]
+				lower = child.lower()
 
-					armChain.append(child)
-					currentJoint = child
+				armChain.append(child)
+				currentJoint = child
 
-					if 'hand' in lower or 'foot' in lower:
-						break
+				if 'hand' in lower or 'foot' in lower:
+					break
 				
 			allChains.append(armChain)
+		print(allChains)
 		return allChains
 	
 	def duplicateJoints(self):
@@ -203,7 +206,7 @@ class P_rigToolKit(object):
 		else:
 			poleTargetOffset = -30
 		if self.main_axis == "Y":
-				cmds.move(poleTargetOffset, 0,0 , poleTarget, ls=True, r=True)
+				cmds.move(0, 0, poleTargetOffset * -1 , poleTarget, ls=True, r=True)
 				cmds.move(0,0,-5,settingsCtrl, r=True)
 		elif self.main_axis == "X":
 			cmds.move(0, poleTargetOffset, 0, poleTarget, ls=True, r=True)
@@ -237,7 +240,7 @@ class P_rigToolKit(object):
 		cmds.makeIdentity( ctrl,apply=True, r=1)
 		cmds.delete(ctrl, ch=True)
 		
-		cmds.parent(masterGroup, ctrl)
+		cmds.parent(ctrl, masterGroup)
 
 		cmds.delete(cmds.parentConstraint(placement, masterGroup, maintainOffset=False))
 
@@ -292,8 +295,6 @@ class P_rigToolKit(object):
 			poleTarget = ikCtrls[1]
 			ikSetting = ikCtrls[2]
 
-			
-			print (cmds.listAttr(ikSetting, sn=True))
 
 			ikLength = len(IKChain)
 			cmds.orientConstraint(ikCtrl, IKChain[ikLength-1])
@@ -468,7 +469,7 @@ class P_rigToolKitUI(object):
 		updatedVariables.append(cmds.floatSliderGrp(self.ctrlSizeInput, q=True, value=True))
 		updatedVariables.append(cmds.checkBox(self.makeIK, q=True, value=True))
 
-		print()
 
 		return updatedVariables
 P_rigToolKitUI()
+
