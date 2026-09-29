@@ -42,10 +42,12 @@ class P_CtrlTools():
 		
 		else:
 			full_path = os.path.join(self.ctrlDir, str(shape + '.fbx'))
+			print(full_path)
 			importedShape = cmds.file(full_path,i=True,type="FBX",ignoreVersion=True, ra=True,mergeNamespacesOnClash=False,options="fbx",pr=True, returnNewNodes=True)
 			transforms = cmds.ls(importedShape, type="transform")
 			cmds.select(importedShape)
 			cmds.scale(size,size,size)
+			
 			cmds.makeIdentity(importedShape, apply=True, scale = True)  
 			if transforms:
 				createdShape = transforms[0]
@@ -100,10 +102,10 @@ class P_CtrlTools():
 
 	def makeShapes(self,originalCtrl, newCtrlType, ctrlSize, ctrlColour):
 		##new name for the new control
-		tempName = originalCtrl + "_TEMP"
+		temp_name = originalCtrl + "_TEMP"
 
 		## make new ctrl, give it what shape to make, the size and the name to make it
-		newCtrl = self.createShape(newCtrlType, ctrlSize, tempName)
+		newCtrl = self.createShape(newCtrlType, ctrlSize, originalCtrl)
 
 		## position and delete parent constraint to place ctrl
 		cmds.delete(cmds.parentConstraint(originalCtrl, newCtrl, maintainOffset=False))
@@ -138,10 +140,10 @@ class P_CtrlTools():
 				
 
 	def createSphere(self, name, size):
-		mainCircle = cmds.circle(name=name,normal=(0, 1, 0), radius=size)[0]
-		circle2 = cmds.circle(name=name+ '2',normal=(1, 0, 0), radius=size)[0]
+		mainCircle = cmds.circle(normal=(0, 1, 0), radius=size)[0]
+		circle2 = cmds.circle(normal=(1, 0, 0), radius=size)[0]
 		circle2shape = cmds.listRelatives(circle2, s=True)[0]
-		circle3 = cmds.circle(name=name+ '3',normal=(0, 0, 1), radius=size)[0]
+		circle3 = cmds.circle(normal=(0, 0, 1), radius=size)[0]
 		circle3shape = cmds.listRelatives(circle3, s=True)[0]
 		cmds.makeIdentity(circle2, r=True)
 		cmds.makeIdentity(circle3, r=True)
@@ -217,7 +219,7 @@ class P_CtrlTools_UI(object):
 		cmds.setParent(mainLayout)
 
 		cmds.text('Control Colour')
-		self.colourInput = cmds.colorIndexSliderGrp( min=1, max=32, value=6)
+		self.colourInput = cmds.colorIndexSliderGrp( min=1, max=32, value=14)
 
 		cmds.setParent(mainLayout)
 
