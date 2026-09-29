@@ -17,6 +17,8 @@ class P_rigToolKit(object):
 		self.ui = uiInstance
 		self.parentedStatus = False
 		self.shouldMakeIK = True
+		self.ikChains = []
+		self.chainSetupUI = None
 
 	def updateInputs(self):
 		updatedVariables = P_rigToolKitUI.updateUiInputValues(self.ui)
@@ -49,7 +51,6 @@ class P_rigToolKit(object):
 	
 
 	def createFKCtrls(self, allJointRelationships):	
-		print("fk creation")
 		
 		lastMainOffSetGroup = None
 		allMainOffsetGroups = []
@@ -119,7 +120,7 @@ class P_rigToolKit(object):
 					jointStarts.append(selectedJoint)
 		return jointStarts
 	
-	def getArmChain(self, jointStarts):
+	def getIKChain(self, jointStarts):
 		allChains = []
 		for i in jointStarts:
 			armChain = [i]
@@ -134,8 +135,6 @@ class P_rigToolKit(object):
 					if len(children) > 1:
 						break
 
-				
-				
 				child = children[0]
 				lower = child.lower()
 
@@ -148,12 +147,66 @@ class P_rigToolKit(object):
 			allChains.append(armChain)
 		print(allChains)
 		return allChains
+
+	def findIKChains(self):
+
+		#replace with any new algo for finding ik chains better
+		chainsStarts = self.findChainStarts()
+		allIKChains = self.getIKChain(chainsStarts)
+		
+		self.ikChains = allIKChains
+
+	def addIKChainFromSelection(self):
+		selection = cmds.ls(selection=True, type='joint')
+		#find the first and last bone in the chain to add to list
+		if selection != None:
+			firstInSelection = selection[0]
+			lastInSelection = selection[len(selection) -1 ]
+			found = False
+			cur = lastInSelection
+			list = [lastInSelection]
+			i=1
+			print(firstInSelection)
+			while True:
+				parent = cmds.listRelatives(cur, ap = True)
+				print(parent)
+				
+				if parent != None:
+					
+					list.append(parent[0])
+					
+					if parent[0] == firstInSelection:
+						print("added and finish loop") 
+						break
+						
+				cur = parent
+				i += 1
+				
+				if i >= 10:
+					print("connection not found")
+					list = None
+					break
+			##this method has the list of joints backwards so reverse before appending
+			list.reverse()
+			self.ikChains.append(list)
+
+                
+      
+
+	def openIKChainUI(self):
+		if cmds.window('P_ikChainSetup', exists=True):
+			cmds.showWindow('P_ikChainSetup')
+		else:
+			self.chainSetupUI = P_ikSetupUI(self)
+
+
 	
 	def duplicateJoints(self):
 		jointNameSpace = '_JNT'
 		
 		chainStarts = self.findChainStarts()
-		allChains = self.getArmChain(chainStarts)
+		allChains = self.getIKChain(chainStarts)
+		self.setupTwist(allChains)
 		
 		allChain_FK = []
 		allChain_IK = []
@@ -220,6 +273,60 @@ class P_rigToolKit(object):
 		ikCtrls.append(settingsCtrl)
 		return ikCtrls
 
+	def setupTwist(self,baseChain):
+		##get base chain
+		for i in baseChain:
+			if len(i) == 3:
+				print(i)
+				self.createTwistBones(i[0], i[1])
+				self.createTwistBones(i[1], i[2])
+
+
+	def createTwistBones(self, first, second):
+		print(first)
+		print(second)
+		above = cmds.listRelatives(first, ap=True)
+		name = str(first.removesuffix("JNT") + "twist_0")
+		twist_01 = cmds.duplicate(first, rc=True, po=True, n=name + "1")[0]
+		twist_02 = cmds.duplicate(second, rc=True, po=True, n=name + "2")[0]
+
+		cmds.parent(twist_02, twist_01)
+		twist_03 = cmds.duplicate(twist_02, rc=True, po=True, n=name + "3")[0]
+		twist_04 = cmds.duplicate(twist_02, rc=True, po=True, n=name + "4")[0]
+		
+		ikHandle = cmds.ikHandle(sj=twist_01, ee=twist_04, sol='ikSCsolver' )[0]
+
+		cmds.parent(ikHandle, above)
+
+		##Point constrain ik to elbow
+		ikFollow = cmds.pointConstraint(second, ikHandle, mo=False)
+		
+		## orient constraint twist_04 to first bone
+		twistFollow = cmds.orientConstraint(first, twist_04, mo=True)
+
+		secondPosSetup = cmds.pointConstraint(twist_01,twist_04, twist_02, mo=False)
+		secondRotSetup = cmds.orientConstraint(twist_01,twist_04, twist_02, mo=False)
+
+		thirdPosSetup = cmds.pointConstraint(twist_01,twist_04, twist_03, mo=False)
+		thirdRotSetup = cmds.orientConstraint(twist_01,twist_04, twist_03, mo=False)
+
+
+		cmds.setAttr(f"{secondPosSetup[0]}.{twist_01}W0", 2.0)   
+		cmds.setAttr(f"{secondPosSetup[0]}.{twist_04}W1", 1.0) 
+
+		cmds.setAttr(f"{secondRotSetup[0]}.{twist_01}W0", 1.0)   
+		cmds.setAttr(f"{secondRotSetup[0]}.{twist_04}W1", 2.0) 
+
+		cmds.setAttr(f"{thirdPosSetup[0]}.{twist_01}W0", 1.0)   
+		cmds.setAttr(f"{thirdPosSetup[0]}.{twist_04}W1", 2.0) 
+
+		cmds.setAttr(f"{thirdRotSetup[0]}.{twist_01}W0", 2.0)   
+		cmds.setAttr(f"{thirdRotSetup[0]}.{twist_04}W1", 1.0) 
+                                             
+
+		## twist 2 and 3  point + orient constraint to 01 and 04 
+		## 2 have 2 strength for first twist and 1 strength for 4th, have the 3rd be the oposite
+
 
 	def createCtrls(self,name,placement, type, getMaster):
 		rotateAmount = None
@@ -256,6 +363,7 @@ class P_rigToolKit(object):
 		return ctrl
 
 	def setupIK(self):
+
 		allBaseChains, allFKChains, allIKChains = self.duplicateJoints()
 		newBaseChains = []
 		newFKChains = []
@@ -370,6 +478,7 @@ class P_rigToolKit(object):
 			Constraint = cmds.parentConstraint(fkCtrl, Group, maintainOffset= True)[0]
 			cmds.parentConstraint(joint, Group, maintainOffset= True)
 
+			
 			children = cmds.parentConstraint(Constraint, q=True, wal=True)
 			mainSwitch = switches[0]
 			reversedSwitch = switches[1]
@@ -377,6 +486,7 @@ class P_rigToolKit(object):
 			cmds.connectAttr(reversedSwitch, Constraint+ '.' + children[1])
 				
 	def makeIkFk(self):
+
 		print('wtf')
 		print(self.shouldMakeIK)
 
@@ -395,6 +505,7 @@ class P_rigToolKit(object):
 			self.createFKCtrls(allJointRelationships)
 			if self.jointFollow is True:
 				self.constrainCtrls()
+
 
 class P_rigToolKitUI(object):
 
@@ -427,6 +538,7 @@ class P_rigToolKitUI(object):
 		self.groupName = cmds.textField(editable=True,placeholderText="_OffsetGRP")
 
 
+
 		cmds.text("Axis")
 		self.mainAxis = cmds.optionMenu()
 		cmds.menuItem(label='Y')
@@ -452,7 +564,9 @@ class P_rigToolKitUI(object):
 		self.jointParent = cmds.checkBox(label='', value=True)
 
 		cmds.rowColumnLayout(numberOfColumns=1)
+		cmds.button("Find IK Chains",aop=True,c=lambda *args: self.rigTools.openIKChainUI())
 		cmds.button("Create Controls",aop=True,c=lambda *args: self.rigTools.makeIkFk())
+		
 
 		cmds.showWindow()
 
@@ -471,5 +585,72 @@ class P_rigToolKitUI(object):
 
 
 		return updatedVariables
+
+
+class P_ikSetupUI(object):
+
+	def __init__(self, rigTools):
+		self.rigTools = rigTools
+		self.window = "P_ikChainSetup"
+		self.title = "IK Chain Setup"
+		self.size = (420, 300)
+
+		#close old window if open
+		if cmds.window(self.window, exists=True):
+			cmds.deleteUI(self.window, window=True)
+
+		self.window = cmds.window(self.window, title=self.title, widthHeight=self.size)
+
+		mainLayout = cmds.columnLayout(adjustableColumn=True, rowSpacing=6)
+
+		cmds.rowColumnLayout(numberOfColumns=2)
+		cmds.button('Find IK Chains', width=140, c=lambda *args: self.findIK())
+		cmds.button('Add From Selection', width=140, c=lambda *args: self.addChainSelection())
+		cmds.button('Remove Selected', width=140, c=lambda *args: self.deleteItem())
+		cmds.button('Clear All', width=140, c=lambda *args: self.clearChains())
+
+		cmds.rowColumnLayout(numberOfColumns=1)
+		self.chainList = cmds.textScrollList(numberOfRows=8, allowMultiSelection=True, height=140)
+		
+
+		cmds.showWindow()
+
+	def refreshChainList(self):
+		cmds.textScrollList(self.chainList,edit= True,  removeAll = True)
+		self.formatChainList()
+
+	def formatChainList(self):
+		allIKChains = self.rigTools.ikChains
+		for i in allIKChains:
+			
+			lenght = len(i)
+			formatted = i[0] + " -> " + i[lenght -1] + "[0" + str(lenght) + "]"
+			cmds.textScrollList(self.chainList, edit=True, append=formatted) 
+			 
+
+	def findIK(self):
+		self.rigTools.findIKChains()
+		self.refreshChainList()
+
+	def addChainSelection(self):
+		self.rigTools.addIKChainFromSelection()
+		self.refreshChainList()
+
+	def deleteItem(self):
+		print("delete")
+		selIndices = cmds.textScrollList(self.chainList, query=True,selectIndexedItem=True) or []  
+	
+		if selIndices != None:
+			for i in selIndices:
+				del self.rigTools.ikChains[i -1]
+		print(selIndices)
+		self.refreshChainList()
+
+	def clearChains(self):
+		self.rigTools.ikChains = []
+	
+			
+
+		
 P_rigToolKitUI()
 
