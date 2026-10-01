@@ -146,6 +146,7 @@ class P_rigToolKit(object):
 				
 			allChains.append(armChain)
 		print(allChains)
+
 		return allChains
 
 	def findIKChains(self):
@@ -201,11 +202,16 @@ class P_rigToolKit(object):
 
 
 	
-	def duplicateJoints(self):
+	def duplicateJoints(self, customChain):
 		jointNameSpace = '_JNT'
-		
-		chainStarts = self.findChainStarts()
-		allChains = self.getIKChain(chainStarts)
+		print("hello")
+		print(customChain)
+		print(self.ikChains)
+		if customChain == False & len(self.ikChains) == 0:
+			chainStarts = self.findChainStarts()
+			allChains = self.getIKChain(chainStarts)
+		else:
+			allChains = self.ikChains
 		self.setupTwist(allChains)
 		
 		allChain_FK = []
@@ -278,17 +284,19 @@ class P_rigToolKit(object):
 		for i in baseChain:
 			if len(i) == 3:
 				print(i)
-				self.createTwistBones(i[0], i[1])
-				self.createTwistBones(i[1], i[2])
+				self.createTwistBones(i[0], i[1], False)
+				self.createTwistBones(i[1], i[2], True)
 
 
-	def createTwistBones(self, first, second):
+	def createTwistBones(self, first, second, flipped):
 		print(first)
 		print(second)
 		above = cmds.listRelatives(first, ap=True)
 		name = str(first.removesuffix("JNT") + "twist_0")
 		twist_01 = cmds.duplicate(first, rc=True, po=True, n=name + "1")[0]
 		twist_02 = cmds.duplicate(second, rc=True, po=True, n=name + "2")[0]
+
+		cmds.delete(cmds.orientConstraint(twist_01, twist_02, maintainOffset=False))
 
 		cmds.parent(twist_02, twist_01)
 		twist_03 = cmds.duplicate(twist_02, rc=True, po=True, n=name + "3")[0]
@@ -302,7 +310,12 @@ class P_rigToolKit(object):
 		ikFollow = cmds.pointConstraint(second, ikHandle, mo=False)
 		
 		## orient constraint twist_04 to first bone
-		twistFollow = cmds.orientConstraint(first, twist_04, mo=True)
+		
+		if flipped == False:
+			twistFollow = cmds.orientConstraint(first, twist_04, mo=True)
+
+		if flipped == True:
+				twistFollow = cmds.orientConstraint(second, twist_04, mo=True)
 
 		secondPosSetup = cmds.pointConstraint(twist_01,twist_04, twist_02, mo=False)
 		secondRotSetup = cmds.orientConstraint(twist_01,twist_04, twist_02, mo=False)
@@ -314,14 +327,14 @@ class P_rigToolKit(object):
 		cmds.setAttr(f"{secondPosSetup[0]}.{twist_01}W0", 2.0)   
 		cmds.setAttr(f"{secondPosSetup[0]}.{twist_04}W1", 1.0) 
 
-		cmds.setAttr(f"{secondRotSetup[0]}.{twist_01}W0", 1.0)   
-		cmds.setAttr(f"{secondRotSetup[0]}.{twist_04}W1", 2.0) 
+		cmds.setAttr(f"{secondRotSetup[0]}.{twist_01}W0", 2.0)   
+		cmds.setAttr(f"{secondRotSetup[0]}.{twist_04}W1", 1.0) 
 
 		cmds.setAttr(f"{thirdPosSetup[0]}.{twist_01}W0", 1.0)   
 		cmds.setAttr(f"{thirdPosSetup[0]}.{twist_04}W1", 2.0) 
 
-		cmds.setAttr(f"{thirdRotSetup[0]}.{twist_01}W0", 2.0)   
-		cmds.setAttr(f"{thirdRotSetup[0]}.{twist_04}W1", 1.0) 
+		cmds.setAttr(f"{thirdRotSetup[0]}.{twist_01}W0", 1.0)   
+		cmds.setAttr(f"{thirdRotSetup[0]}.{twist_04}W1", 2.0) 
                                              
 
 		## twist 2 and 3  point + orient constraint to 01 and 04 
@@ -362,9 +375,9 @@ class P_rigToolKit(object):
 			return [ctrl, masterGroup]
 		return ctrl
 
-	def setupIK(self):
+	def setupIK(self, customChain):
 
-		allBaseChains, allFKChains, allIKChains = self.duplicateJoints()
+		allBaseChains, allFKChains, allIKChains = self.duplicateJoints(customChain)
 		newBaseChains = []
 		newFKChains = []
 		endJNTS = []
@@ -485,15 +498,14 @@ class P_rigToolKit(object):
 			cmds.connectAttr(mainSwitch, Constraint+ '.' + children[0])
 			cmds.connectAttr(reversedSwitch, Constraint+ '.' + children[1])
 				
-	def makeIkFk(self):
+	def makeIkFk(self, customChain):
 
-		print('wtf')
 		print(self.shouldMakeIK)
 
 		if self.shouldMakeIK is True:
 			self.updateInputs()
 			allJointRelationships = self.selectAllJoints()
-			baseChains, ikChains, endFkCtrls, endJNTs, ikSettings = self.setupIK()
+			baseChains, ikChains, endFkCtrls, endJNTs, ikSettings = self.setupIK(customChain)
 			updatedJointRelations = self.updateJointRelations(baseChains, ikChains,allJointRelationships)
 			handFeetOffsetGroups = self.createFKCtrls(updatedJointRelations)
 			self.parentOffsets(handFeetOffsetGroups, endFkCtrls, endJNTs, ikSettings)
@@ -565,7 +577,7 @@ class P_rigToolKitUI(object):
 
 		cmds.rowColumnLayout(numberOfColumns=1)
 		cmds.button("Find IK Chains",aop=True,c=lambda *args: self.rigTools.openIKChainUI())
-		cmds.button("Create Controls",aop=True,c=lambda *args: self.rigTools.makeIkFk())
+		cmds.button("Create Controls",aop=True,c=lambda *args: self.rigTools.makeIkFk(False))
 		
 
 		cmds.showWindow()
@@ -603,14 +615,18 @@ class P_ikSetupUI(object):
 
 		mainLayout = cmds.columnLayout(adjustableColumn=True, rowSpacing=6)
 
-		cmds.rowColumnLayout(numberOfColumns=2)
+		cmds.rowColumnLayout(numberOfColumns=2)                                  
 		cmds.button('Find IK Chains', width=140, c=lambda *args: self.findIK())
 		cmds.button('Add From Selection', width=140, c=lambda *args: self.addChainSelection())
 		cmds.button('Remove Selected', width=140, c=lambda *args: self.deleteItem())
 		cmds.button('Clear All', width=140, c=lambda *args: self.clearChains())
 
-		cmds.rowColumnLayout(numberOfColumns=1)
+
+
+		cmds.setParent(mainLayout)  
 		self.chainList = cmds.textScrollList(numberOfRows=8, allowMultiSelection=True, height=140)
+
+		cmds.button('Make IK', width=280, c=lambda *args: self.rigTools.makeIkFk(True))
 		
 
 		cmds.showWindow()
@@ -648,6 +664,7 @@ class P_ikSetupUI(object):
 
 	def clearChains(self):
 		self.rigTools.ikChains = []
+		self.refreshChainList()
 	
 			
 
