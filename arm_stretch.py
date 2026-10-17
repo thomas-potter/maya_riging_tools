@@ -52,7 +52,6 @@ def start():
     handIKLocator = cmds.rename(handIKCtrl+ "_locator")
     cmds.parentConstraint(handIKCtrl, handIKLocator, maintainOffset=False)
 
-
     ##setups
 
     ##hand_settings
