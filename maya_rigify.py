@@ -1,4 +1,6 @@
 import maya.cmds as cmds
+import ikStretch
+
 
 class P_rigToolKit(object):
 	def __init__(self, uiInstance):
@@ -49,7 +51,7 @@ class P_rigToolKit(object):
 		if not self.group_nameSpace.strip():
 			self.group_nameSpace = defaultgroupOffsetName	
 	
-
+	## create ctrls for the whole chain if 
 	def createFKCtrls(self, allJointRelationships):	
 		
 		lastMainOffSetGroup = None
@@ -344,6 +346,7 @@ class P_rigToolKit(object):
 	def createCtrls(self,name,placement, type, getMaster):
 		rotateAmount = None
 		masterGroup = cmds.group(empty=True, name=name + type + self.group_nameSpace)
+
 		ctrl = cmds.circle(name=name + type + self.control_nameSpace, radius = self.ctrlSize)[0]
 
 		if self.negative == True:
@@ -671,3 +674,4 @@ class P_ikSetupUI(object):
 		
 P_rigToolKitUI()
 
+## if rigging for a game project is it better to make a rig close to ue skeleton or mixamo rigs? 

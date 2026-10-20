@@ -1,5 +1,4 @@
 import maya.cmds as cmds
-import maya.mel as mel
 
 twist_jnt_amount = 2
 

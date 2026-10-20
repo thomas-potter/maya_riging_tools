@@ -4,13 +4,11 @@ selection = cmds.ls(selection=True, typ="joint")
 footStart = selection[0]
 heel = selection[1]
 
-
 footChain = (cmds.listRelatives(ad=True))
 footChain.append(footStart)
 footChain.reverse()
 
-
-def startIKFoot(ikFootChain, heelJoint):
+def startIKFoot(ikFootChain, heelJoint, name):
     reverseFootChaintemp = cmds.duplicate(ikFootChain[0], rc=True)
     reverseFootChain = []
 
@@ -45,7 +43,8 @@ def startIKFoot(ikFootChain, heelJoint):
 
     #second ik from heel pivot to toe - need to parent it to toepivot
     secondIkHandle = cmds.ikHandle(sj = ikFootChain[1], ee=ikFootChain[2] , sol= "ikSCsolver")[0]
-    cmds.parentConstraint(reverseFootChain[2],firstIkHandle, maintainOffset=True)
+    cmds.parentConstraint(reverseFootChain[2],secondIkHandle, maintainOffset=True)
+
 
 
 
